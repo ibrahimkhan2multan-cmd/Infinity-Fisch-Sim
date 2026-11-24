@@ -1,0 +1,3 @@
+.godot/
+*.import
+!icon.svg.import

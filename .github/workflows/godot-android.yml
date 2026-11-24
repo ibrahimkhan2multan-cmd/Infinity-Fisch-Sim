@@ -1,0 +1,137 @@
+name: Godot Android (Infinity Fishing)
+
+# This workflow is ADDED next to the original "Android Native CI/CD" workflow
+# (.github/workflows/android.yml), which still builds the Kotlin template and is
+# left completely untouched. Gradle cannot export a Godot project, so the game
+# gets its own pipeline that runs the Godot editor headlessly.
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "game/**"
+      - "tools/ci/**"
+      - ".github/workflows/godot-android.yml"
+    tags:
+      - "v*"
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "game/**"
+      - "tools/ci/**"
+      - ".github/workflows/godot-android.yml"
+  workflow_dispatch:
+
+env:
+  GODOT_TAG: "4.7-stable"
+  PROJECT_DIR: game
+
+jobs:
+  export-android:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: "17"
+          distribution: "temurin"
+
+      - name: Cache Godot downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/godot-ci/dl
+          key: godot-${{ env.GODOT_TAG }}-v1
+
+      - name: Install Godot + export templates
+        run: bash tools/ci/setup_godot.sh
+
+      - name: Configure Android SDK for Godot
+        run: bash tools/ci/configure_android.sh "$PROJECT_DIR"
+
+      - name: Import project
+        run: |
+          # First import builds the .godot cache (global classes, resources).
+          timeout 300 godot --headless --path "$PROJECT_DIR" --import || true
+
+      - name: Run automated game tests
+        run: godot --headless --path "$PROJECT_DIR" -s res://tests/run_tests.gd
+
+      - name: Create debug keystore
+        run: |
+          keytool -genkeypair -v -keystore "$RUNNER_TEMP/debug.keystore" \
+            -storepass android -keypass android -alias androiddebugkey \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -dname "CN=Android Debug,O=Android,C=US"
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_PATH=$RUNNER_TEMP/debug.keystore" >> "$GITHUB_ENV"
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_USER=androiddebugkey" >> "$GITHUB_ENV"
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD=android" >> "$GITHUB_ENV"
+
+      - name: Export debug APK
+        run: |
+          mkdir -p build
+          godot --headless --path "$PROJECT_DIR" --export-debug "Android" ../build/infinity-fishing-debug.apk
+          ls -lh build/
+          test -s build/infinity-fishing-debug.apk
+
+      - name: Upload debug APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: infinity-fishing-debug-apk
+          path: build/infinity-fishing-debug.apk
+          retention-days: 14
+
+      # ---- Release signing: only on version tags, reusing the SAME four secrets
+      # ---- the original Kotlin workflow uses (see bash/utils-generate-keystore).
+      - name: Prepare release keystore
+        id: relkey
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          KEYSTORE_BASE64: ${{ secrets.SIGNING_KEY_STORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "No signing secrets configured - skipping release build."
+            echo "have_key=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          # Godot uses ONE password for keystore and key. The original generator
+          # allows two different ones, so repack into a PKCS12 where both match.
+          keytool -importkeystore -noprompt \
+            -srckeystore "$RUNNER_TEMP/release.jks" -srcstorepass "$STORE_PASSWORD" \
+            -srcalias "$KEY_ALIAS" -srckeypass "$KEY_PASSWORD" \
+            -destkeystore "$RUNNER_TEMP/godot-release.p12" -deststoretype PKCS12 \
+            -deststorepass "$KEY_PASSWORD" -destkeypass "$KEY_PASSWORD" -destalias "$KEY_ALIAS"
+          echo "GODOT_ANDROID_KEYSTORE_RELEASE_PATH=$RUNNER_TEMP/godot-release.p12" >> "$GITHUB_ENV"
+          echo "GODOT_ANDROID_KEYSTORE_RELEASE_USER=$KEY_ALIAS" >> "$GITHUB_ENV"
+          echo "GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD=$KEY_PASSWORD" >> "$GITHUB_ENV"
+          echo "have_key=true" >> "$GITHUB_OUTPUT"
+
+      - name: Export release APK
+        if: startsWith(github.ref, 'refs/tags/') && steps.relkey.outputs.have_key == 'true'
+        run: |
+          godot --headless --path "$PROJECT_DIR" --export-release "Android" ../build/infinity-fishing-release.apk
+          test -s build/infinity-fishing-release.apk
+
+      - name: Upload release APK artifact
+        if: startsWith(github.ref, 'refs/tags/') && steps.relkey.outputs.have_key == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: infinity-fishing-release-apk
+          path: build/infinity-fishing-release.apk
+          retention-days: 30
+
+      - name: Attach APK to GitHub release
+        if: startsWith(github.ref, 'refs/tags/') && steps.relkey.outputs.have_key == 'true'
+        uses: softprops/action-gh-release@v1
+        with:
+          files: build/infinity-fishing-release.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

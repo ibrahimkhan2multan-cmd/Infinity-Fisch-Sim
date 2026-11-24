@@ -1,0 +1,52 @@
+; Engine configuration file.
+; Infinity Fishing - a 3D open-world fishing & fish-business game (Godot 4.7, GDScript).
+
+config_version=5
+
+[application]
+
+config/name="Infinity Fishing"
+config/description="Original 3D open-world fishing, breeding, cooking and fish-business game."
+run/main_scene="res://scenes/main.tscn"
+config/features=PackedStringArray("4.7", "GL Compatibility")
+run/max_fps=60
+boot_splash/bg_color=Color(0.04, 0.09, 0.16, 1)
+boot_splash/show_image=false
+config/icon="res://icon.svg"
+
+[autoload]
+
+Data="*res://scripts/autoload/data.gd"
+Game="*res://scripts/autoload/game_state.gd"
+Clock="*res://scripts/autoload/world_clock.gd"
+Settings="*res://scripts/autoload/settings.gd"
+Sfx="*res://scripts/autoload/sfx.gd"
+Save="*res://scripts/autoload/save_system.gd"
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+window/handheld/orientation=4
+
+[input_devices]
+
+pointing/emulate_touch_from_mouse=true
+pointing/emulate_mouse_from_touch=true
+
+[physics]
+
+common/physics_ticks_per_second=60
+3d/default_gravity=24.0
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+textures/vram_compression/import_etc2_astc=true
+environment/defaults/default_clear_color=Color(0.04, 0.09, 0.16, 1)
+anti_aliasing/quality/msaa_3d=0
+lights_and_shadows/directional_shadow/size=2048
+lights_and_shadows/directional_shadow/soft_shadow_filter_quality=1

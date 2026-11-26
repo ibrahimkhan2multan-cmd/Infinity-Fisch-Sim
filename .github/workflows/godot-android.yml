@@ -64,15 +64,19 @@ jobs:
       - name: Play-through test (main menu, touch input, fishing, panels, save, ferry)
         run: timeout 600 godot --headless --path "$PROJECT_DIR" res://tests/e2e_play.tscn
 
-      - name: Create debug keystore
+      # A FIXED debug key (committed on purpose: it only signs test builds and
+      # protects nothing) plus an ever-increasing versionCode means every new
+      # APK installs as an UPDATE over the previous one, keeping saves.
+      - name: Use stable debug keystore and bump versionCode
         run: |
-          keytool -genkeypair -v -keystore "$RUNNER_TEMP/debug.keystore" \
-            -storepass android -keypass android -alias androiddebugkey \
-            -keyalg RSA -keysize 2048 -validity 10000 \
-            -dname "CN=Android Debug,O=Android,C=US"
+          cp tools/ci/debug.keystore "$RUNNER_TEMP/debug.keystore"
           echo "GODOT_ANDROID_KEYSTORE_DEBUG_PATH=$RUNNER_TEMP/debug.keystore" >> "$GITHUB_ENV"
           echo "GODOT_ANDROID_KEYSTORE_DEBUG_USER=androiddebugkey" >> "$GITHUB_ENV"
           echo "GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD=android" >> "$GITHUB_ENV"
+          # run_number only ever goes up; offset keeps it above the earlier code=1 build
+          CODE=$(( ${{ github.run_number }} + 100 ))
+          sed -i "s/^version\/code=.*/version\/code=$CODE/" "$PROJECT_DIR/export_presets.cfg"
+          grep -n "^version/" "$PROJECT_DIR/export_presets.cfg"
 
       - name: Export debug APK
         run: |

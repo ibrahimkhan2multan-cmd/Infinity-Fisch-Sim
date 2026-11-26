@@ -204,3 +204,6 @@ SIGNING_KEY_PASSWORD
 SIGNING_KEY_STORE_BASE64
 SIGNING_STORE_PASSWORD
 build/
+
+# Stable CI debug key for installable updates (throwaway, protects nothing)
+!tools/ci/debug.keystore

@@ -70,9 +70,9 @@ static func build_products() -> Dictionary:
 		# id, name, mult, time, unlock, feed_value, desc
 		["fillet", "Fish Fillets", 1.20, 20.0, 0, 0.0, "Cleaned, boneless fillets."],
 		["fishmeal", "Fishmeal", 0.35, 15.0, 0, 45.0, "Ground fish. Great tank feed."],
-		["fish_oil", "Fish Oil", 0.55, 15.0, 1200, 0.0, "Pressed oil, sold to wholesalers."],
-		["smoked", "Smoked Fish", 1.55, 45.0, 6000, 0.0, "Slow-smoked in the factory kiln."],
-		["canned", "Canned Fish", 1.90, 40.0, 20000, 0.0, "Sealed tins with a long shelf life."],
+		["fish_oil", "Fish Oil", 0.55, 15.0, 500, 0.0, "Pressed oil, sold to wholesalers."],
+		["smoked", "Smoked Fish", 1.55, 45.0, 2500, 0.0, "Slow-smoked in the factory kiln."],
+		["canned", "Canned Fish", 1.90, 40.0, 8000, 0.0, "Sealed tins with a long shelf life."],
 	]
 	var out := {}
 	for r in rows:

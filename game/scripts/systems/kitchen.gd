@@ -6,8 +6,8 @@ extends RefCounted
 const STATIONS := {
 	"grill": {"name": "Grill", "cost": 0, "level": 1},
 	"prep": {"name": "Prep Table", "cost": 0, "level": 1},
-	"pot": {"name": "Stew Pot", "cost": 400, "level": 3},
-	"oven": {"name": "Oven", "cost": 1500, "level": 6},
+	"pot": {"name": "Stew Pot", "cost": 200, "level": 3},
+	"oven": {"name": "Oven", "cost": 700, "level": 6},
 }
 
 

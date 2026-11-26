@@ -61,7 +61,7 @@ projects. The Godot build is a separate workflow, `.github/workflows/godot-andro
 
 1. Installs Godot 4.7 and its export templates and the Android SDK/NDK (`tools/ci/`).
 2. Runs both test suites; the build fails if any test fails.
-3. Exports a debug APK signed with a throwaway debug keystore and uploads it as the **`infinity-fishing-debug-apk`** artifact (Actions run page -> Artifacts).
+3. Exports a debug APK signed with the fixed debug key in `tools/ci/debug.keystore` (committed on purpose; it only signs test builds) and sets `version/code` from the run number, so each new build installs as an update over the previous one and keeps your save. (A build signed with an older, random key must be uninstalled once.) The APK is uploaded as the **`infinity-fishing-debug-apk`** artifact (Actions run page -> Artifacts).
 4. On a `v*` tag, if the existing signing secrets are present, it also builds a signed release APK (`infinity-fishing-release-apk`) and attaches it to the release.
 
 ## Honest status

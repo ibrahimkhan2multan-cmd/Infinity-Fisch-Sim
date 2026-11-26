@@ -35,8 +35,9 @@ func _initialize() -> void:
 		_current = f
 		print("== ", f)
 		var script: GDScript = load("res://tests/cases/" + f)
-		if script == null:
-			failures.append("[%s] could not load" % f)
+		if script == null or not script.can_instantiate():
+			failures.append("[%s] could not load (parse error)" % f)
+			print("  FAIL: could not load ", f)
 			continue
 		var inst: Object = script.new()
 		if inst.has_method("run"):

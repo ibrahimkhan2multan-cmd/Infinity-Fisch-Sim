@@ -59,7 +59,10 @@ jobs:
           timeout 300 godot --headless --path "$PROJECT_DIR" --import || true
 
       - name: Run automated game tests
-        run: godot --headless --path "$PROJECT_DIR" -s res://tests/run_tests.gd
+        run: timeout 600 godot --headless --path "$PROJECT_DIR" -s res://tests/run_tests.gd
+
+      - name: Play-through test (main menu, touch input, fishing, panels, save, ferry)
+        run: timeout 600 godot --headless --path "$PROJECT_DIR" res://tests/e2e_play.tscn
 
       - name: Create debug keystore
         run: |

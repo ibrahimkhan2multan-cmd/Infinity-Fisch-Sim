@@ -1,3 +1,5 @@
+> **Godot game in this repo:** `game/` contains *Infinity Fishing*, a Godot 4.7 Android game, built by the separate workflow `.github/workflows/godot-android.yml` (APK artifact `infinity-fishing-debug-apk`). See [`game/README.md`](game/README.md). The Kotlin template and its workflow below are unchanged.
+
 # Hello World: Minimal Kotin APK Template
 
 **Compile Android APKs in 2 minutes - ZERO installation required!**

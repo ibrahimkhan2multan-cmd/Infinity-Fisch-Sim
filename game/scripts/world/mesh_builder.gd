@@ -159,14 +159,200 @@ func build(material: Material = null) -> ArrayMesh:
 	return mesh
 
 
-static var _vc_mat: StandardMaterial3D = null
+static var _vc_mat: ShaderMaterial = null
 
-static func vertex_color_material() -> StandardMaterial3D:
+static func vertex_color_material() -> ShaderMaterial:
 	if _vc_mat == null:
-		_vc_mat = StandardMaterial3D.new()
-		_vc_mat.vertex_color_use_as_albedo = true
-		_vc_mat.vertex_color_is_srgb = true  # palette colors are authored as sRGB hex
-		_vc_mat.roughness = 0.9
-		_vc_mat.metallic = 0.0
-		_vc_mat.metallic_specular = 0.2
+		_vc_mat = ShaderMaterial.new()
+		_vc_mat.shader = preload("res://shaders/prop.gdshader")
 	return _vc_mat
+
+
+# ---------------------------------------------------------------------------
+# Smooth-shaded primitives (per-vertex normals + gradients). Colour alpha is
+# the wind-sway weight consumed by prop.gdshader: 1 = rigid, 0 = fully swaying.
+# ---------------------------------------------------------------------------
+
+## Adds a triangle with per-vertex normals/colours; the winding is fixed so the
+## geometric normal agrees with the average vertex normal.
+func tri_smooth(a: Vector3, b: Vector3, c: Vector3, na: Vector3, nb: Vector3, nc: Vector3,
+		ca: Color, cb: Color, cc: Color) -> void:
+	var g := (c - a).cross(b - a)
+	if g.length_squared() < 1e-12:
+		return
+	if g.dot(na + nb + nc) < 0.0:
+		var tp := b; b = c; c = tp
+		tp = nb; nb = nc; nc = tp
+		var tc := cb; cb = cc; cc = tc
+	_v.append(a); _v.append(b); _v.append(c)
+	_n.append(na); _n.append(nb); _n.append(nc)
+	_c.append(ca); _c.append(cb); _c.append(cc)
+
+
+## Smooth ellipsoid with a vertical colour gradient (bottom -> top), optional
+## lumpiness (`bump`, for foliage/rocks) and wind sway.
+func ellipsoid(center: Vector3, radii: Vector3, col_top: Color, col_bot: Color = Color(0, 0, 0, 0),
+		segs := 10, rings := 7, basis := Basis.IDENTITY, bump := 0.0, seed_value := 0, sway := 0.0) -> void:
+	if col_bot.a == 0.0 and col_bot == Color(0, 0, 0, 0):
+		col_bot = col_top
+	var pts: Array = []
+	var nrm: Array = []
+	var cols: Array = []
+	for r in rings + 1:
+		var phi := PI * r / rings
+		var prow: Array[Vector3] = []
+		var nrow: Array[Vector3] = []
+		var crow: Array[Color] = []
+		for sg in segs:
+			var th := TAU * sg / segs
+			var d := Vector3(sin(phi) * cos(th), cos(phi), sin(phi) * sin(th))
+			var k := 1.0
+			if bump > 0.0:
+				var hsh := Util.hash01(seed_value * 131 + r * 17 + (sg % maxi(segs, 1)) * 7919)
+				k = 1.0 + (hsh - 0.5) * 2.0 * bump
+				if r == 0 or r == rings:
+					k = 1.0
+			var local := Vector3(d.x * radii.x, d.y * radii.y, d.z * radii.z) * k
+			prow.append(center + basis * local)
+			var nl := Vector3(d.x / maxf(radii.x, 1e-4), d.y / maxf(radii.y, 1e-4), d.z / maxf(radii.z, 1e-4))
+			nrow.append((basis * nl).normalized())
+			var t := clampf(0.5 + 0.5 * d.y, 0.0, 1.0)
+			var cl := col_bot.lerp(col_top, smoothstep(0.1, 0.9, t))
+			cl.a = 1.0 - sway
+			crow.append(cl)
+		pts.append(prow)
+		nrm.append(nrow)
+		cols.append(crow)
+	for r in rings:
+		for sg in segs:
+			var s2 := (sg + 1) % segs
+			tri_smooth(pts[r][sg], pts[r][s2], pts[r + 1][s2], nrm[r][sg], nrm[r][s2], nrm[r + 1][s2],
+				cols[r][sg], cols[r][s2], cols[r + 1][s2])
+			tri_smooth(pts[r][sg], pts[r + 1][s2], pts[r + 1][sg], nrm[r][sg], nrm[r + 1][s2], nrm[r + 1][sg],
+				cols[r][sg], cols[r + 1][s2], cols[r + 1][sg])
+
+
+## Smooth tube along a polyline with per-point radius and colour gradient.
+## Used for trunks, branches, limbs, rod blanks, necks and tails.
+func tube(points: Array, radii: Array, col_a: Color, col_b: Color = Color(0, 0, 0, 0), segs := 7,
+		cap_start := false, cap_end := true, sway := 0.0, squash := Vector2.ONE) -> void:
+	if points.size() < 2:
+		return
+	if col_b == Color(0, 0, 0, 0):
+		col_b = col_a
+	var count: int = points.size()
+	var tangent: Vector3 = ((points[1] as Vector3) - (points[0] as Vector3)).normalized()
+	var ref := Vector3.RIGHT if absf(tangent.dot(Vector3.RIGHT)) < 0.9 else Vector3.FORWARD
+	var u := tangent.cross(ref).normalized()
+	var rings: Array = []
+	var norms: Array = []
+	var cols: Array = []
+	for i in count:
+		var p: Vector3 = points[i]
+		var tg: Vector3
+		if i == 0:
+			tg = ((points[1] as Vector3) - p).normalized()
+		elif i == count - 1:
+			tg = (p - (points[i - 1] as Vector3)).normalized()
+		else:
+			tg = ((points[i + 1] as Vector3) - (points[i - 1] as Vector3)).normalized()
+		u = (u - tg * u.dot(tg)).normalized()
+		var v := tg.cross(u).normalized()
+		var rad: float = radii[i]
+		var f := float(i) / float(count - 1)
+		var cl := col_a.lerp(col_b, f)
+		cl.a = 1.0 - sway * clampf(f * 1.4, 0.0, 1.0)
+		var row: Array[Vector3] = []
+		var nrow: Array[Vector3] = []
+		for sg in segs:
+			var a := TAU * sg / segs
+			var dir := u * cos(a) * squash.x + v * sin(a) * squash.y
+			row.append(p + dir * rad)
+			nrow.append((u * cos(a) / maxf(squash.x, 1e-3) + v * sin(a) / maxf(squash.y, 1e-3)).normalized())
+		rings.append(row)
+		norms.append(nrow)
+		cols.append(cl)
+	for i in count - 1:
+		for sg in segs:
+			var s2 := (sg + 1) % segs
+			tri_smooth(rings[i][sg], rings[i][s2], rings[i + 1][s2], norms[i][sg], norms[i][s2], norms[i + 1][s2],
+				cols[i], cols[i], cols[i + 1])
+			tri_smooth(rings[i][sg], rings[i + 1][s2], rings[i + 1][sg], norms[i][sg], norms[i + 1][s2], norms[i + 1][sg],
+				cols[i], cols[i + 1], cols[i + 1])
+	for cap in 2:
+		if (cap == 0 and not cap_start) or (cap == 1 and not cap_end):
+			continue
+		var idx := 0 if cap == 0 else count - 1
+		var c: Vector3 = points[idx]
+		var tg2: Vector3 = ((points[1] as Vector3) - (points[0] as Vector3)).normalized() if cap == 0 \
+			else ((points[count - 1] as Vector3) - (points[count - 2] as Vector3)).normalized()
+		var nn := -tg2 if cap == 0 else tg2
+		for sg in segs:
+			var s2 := (sg + 1) % segs
+			tri_smooth(c, rings[idx][sg], rings[idx][s2], nn, nn, nn, cols[idx], cols[idx], cols[idx])
+
+
+## Straight smooth capsule-ish limb between two points (rounded ends).
+func limb(a: Vector3, b: Vector3, r_a: float, r_b: float, col_a: Color, col_b: Color = Color(0, 0, 0, 0), segs := 8) -> void:
+	if col_b == Color(0, 0, 0, 0):
+		col_b = col_a
+	tube([a, b], [r_a, r_b], col_a, col_b, segs, false, false)
+	var dir := (b - a).normalized()
+	var up := Vector3.UP if absf(dir.y) < 0.99 else Vector3.RIGHT
+	var basis := Basis.looking_at(dir, up)
+	ellipsoid(a, Vector3(r_a, r_a, r_a), col_a, col_a, segs, 4, basis)
+	ellipsoid(b, Vector3(r_b, r_b, r_b), col_b, col_b, segs, 4, basis)
+
+
+## Flat double-sided polygon (fan from the first point): fins, leaves, sails.
+## `cols` may hold one colour per point for gradients.
+func fin(points: Array, cols: Array) -> void:
+	if points.size() < 3:
+		return
+	var n0 := (((points[1] as Vector3) - (points[0] as Vector3)).cross((points[2] as Vector3) - (points[0] as Vector3))).normalized()
+	for i in range(1, points.size() - 1):
+		var a: Vector3 = points[0]
+		var b: Vector3 = points[i]
+		var c: Vector3 = points[i + 1]
+		var ca: Color = cols[0] if cols.size() > 0 else Color.WHITE
+		var cb: Color = cols[mini(i, cols.size() - 1)]
+		var cc: Color = cols[mini(i + 1, cols.size() - 1)]
+		_v.append(a); _v.append(b); _v.append(c)
+		_n.append(n0); _n.append(n0); _n.append(n0)
+		_c.append(ca); _c.append(cb); _c.append(cc)
+		_v.append(a); _v.append(c); _v.append(b)
+		_n.append(-n0); _n.append(-n0); _n.append(-n0)
+		_c.append(ca); _c.append(cc); _c.append(cb)
+
+
+## Adds the geometry as an extra surface of `mesh` with its own material
+## (used for emissive/glowing parts such as lamps and magical rod trims).
+func add_surface(mesh: ArrayMesh, material: Material) -> void:
+	if _v.is_empty():
+		return
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = _v
+	arrays[Mesh.ARRAY_NORMAL] = _n
+	arrays[Mesh.ARRAY_COLOR] = _c
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	mesh.surface_set_material(mesh.get_surface_count() - 1, material)
+
+
+static var _glow_mats: Array[ShaderMaterial] = []
+
+
+## Emissive material for lamp glass / windows. `night_emission` is how bright it
+## glows after dark; SkyController drives them all through set_night().
+static func glow_material(energy := 2.0, glassy := 0.0) -> ShaderMaterial:
+	var m := ShaderMaterial.new()
+	m.shader = preload("res://shaders/glow.gdshader")
+	m.set_shader_parameter("night_emission", energy)
+	m.set_shader_parameter("glassy", glassy)
+	_glow_mats.append(m)
+	return m
+
+
+static func set_night(v: float) -> void:
+	for m in _glow_mats:
+		m.set_shader_parameter("night", v)

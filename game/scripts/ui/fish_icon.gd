@@ -52,18 +52,34 @@ func _draw() -> void:
 	# dorsal fin
 	draw_colored_polygon(PackedVector2Array([
 		Vector2(c.x - rx * 0.2, c.y - ry * 0.85), Vector2(c.x + rx * 0.1, c.y - ry * 1.5), Vector2(c.x + rx * 0.35, c.y - ry * 0.8)]), c2)
-	# body (two tone)
+	# pectoral + anal fins
+	draw_colored_polygon(PackedVector2Array([Vector2(c.x + rx * 0.05, c.y + ry * 0.25), Vector2(c.x - rx * 0.25, c.y + ry * 0.95),
+		Vector2(c.x - rx * 0.35, c.y + ry * 0.35)]), c2.darkened(0.12))
+	# body: back colour fading to a lighter belly, so it reads as a round, glossy fish
 	var pts := PackedVector2Array()
-	var pts2 := PackedVector2Array()
-	for i in 40:
-		var a := TAU * float(i) / 40.0
-		pts.append(c + Vector2(cos(a) * rx, sin(a) * ry))
-		if sin(a) > -0.05:
-			pts2.append(c + Vector2(cos(a) * rx * 0.97, sin(a) * ry * 0.97))
-	draw_colored_polygon(pts, c1)
-	if pts2.size() > 2:
-		draw_colored_polygon(pts2, c2)
+	var cols := PackedColorArray()
+	var belly := c2.lightened(0.35)
+	for i in 48:
+		var a := TAU * float(i) / 48.0
+		var p := c + Vector2(cos(a) * rx, sin(a) * ry)
+		pts.append(p)
+		var k := smoothstep(-0.9, 0.8, sin(a))  # -1 back (screen up) .. +1 belly
+		cols.append(c1.lerp(belly, k))
+	draw_polygon(pts, cols)
+	# lateral stripe + scale shimmer
+	draw_line(c + Vector2(-rx * 0.8, ry * 0.05), c + Vector2(rx * 0.7, -ry * 0.05), c2.darkened(0.25), maxf(2.0, ry * 0.07), true)
+	for k in 3:
+		var sx := c.x - rx * (0.1 + 0.28 * k)
+		draw_arc(Vector2(sx, c.y), ry * 0.5, -0.9, 0.9, 10, Color(1, 1, 1, 0.14), 1.5, true)
+	# gloss highlight along the back
+	var hl := PackedVector2Array()
+	for i in 14:
+		var t := float(i) / 13.0
+		hl.append(c + Vector2(lerpf(-rx * 0.55, rx * 0.5, t), -ry * 0.62 * sin(t * PI * 0.9 + 0.1)))
+	draw_polyline(hl, Color(1, 1, 1, 0.35), maxf(2.0, ry * 0.08), true)
 	# eye
 	var eye := c + Vector2(rx * 0.55, -ry * 0.2)
 	draw_circle(eye, ry * 0.2, Color.WHITE)
-	draw_circle(eye + Vector2(2, 0), ry * 0.1, Color.BLACK)
+	draw_circle(eye + Vector2(2, 0), ry * 0.12, Color("141820"))
+	draw_circle(eye + Vector2(0, -ry * 0.05), ry * 0.04, Color.WHITE)
+	draw_line(c + Vector2(rx * 0.98, ry * 0.15), c + Vector2(rx * 0.82, ry * 0.22), c2.darkened(0.5), 2.0, true)

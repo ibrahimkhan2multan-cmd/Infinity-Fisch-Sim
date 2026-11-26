@@ -44,6 +44,9 @@ var _wait_left := 0.0
 var _bite_left := 0.0
 var _result_left := 0.0
 var _rod_angle := 2.9
+var _rod_tip_local := Vector3(0, -ROD_LEN, 0)
+var _ripple: MeshInstance3D
+var _ripple_mat: ShaderMaterial
 var _t := 0.0
 var _reel_tick := 0.0
 
@@ -61,11 +64,23 @@ func setup(p: Player) -> void:
 	_bobber.top_level = true
 	_bobber.visible = false
 	var bb := MeshBuilder.new()
-	bb.sphere(Vector3(0, 0.0, 0), 0.17, Color("f5f5f5"), 8, 4)
-	bb.sphere(Vector3(0, -0.1, 0), 0.16, Color("e0322d"), 8, 3)
-	bb.cylinder(Vector3(0, 0.12, 0), 0.02, 0.02, 0.22, 4, Color("e0322d"))
+	bb.ellipsoid(Vector3(0, 0.06, 0), Vector3(0.14, 0.16, 0.14), Color("f4f1ea"), Color("e6e0d2"), 10, 7)
+	bb.ellipsoid(Vector3(0, -0.07, 0), Vector3(0.138, 0.13, 0.138), Color("d9302a"), Color("a82220"), 10, 6)
+	bb.tube([Vector3(0, 0.2, 0), Vector3(0, 0.4, 0)], [0.018, 0.012], Color("e8e3d6"), Color("d9302a"), 6, false, true)
+	bb.tube([Vector3(0, -0.2, 0), Vector3(0, -0.28, 0)], [0.012, 0.012], Color("3a3a3e"), Color("3a3a3e"), 5, false, true)
 	_bobber.mesh = bb.build()
 	add_child(_bobber)
+	_ripple = MeshInstance3D.new()
+	var rp := PlaneMesh.new()
+	rp.size = Vector2(2.4, 2.4)
+	_ripple.mesh = rp
+	_ripple_mat = ShaderMaterial.new()
+	_ripple_mat.shader = preload("res://shaders/ripple.gdshader")
+	_ripple.material_override = _ripple_mat
+	_ripple.top_level = true
+	_ripple.visible = false
+	_ripple.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(_ripple)
 	_line = MeshInstance3D.new()
 	_line.top_level = true
 	_line_mesh = ImmediateMesh.new()
@@ -133,17 +148,13 @@ func _make_particles(col: Color, amount: int, life: float, vmin: float, vmax: fl
 
 
 func _rebuild_rod() -> void:
-	var rod := Game.rod_data()
-	var b := MeshBuilder.new()
-	var flip := Basis(Vector3.RIGHT, PI)  # build along -Y
-	b.cylinder(Vector3(0, 0.25, 0), 0.055, 0.045, 0.7, 6, Color("2f2a26"), Color(0, 0, 0, 0), flip)
-	b.cylinder(Vector3(0, -0.45, 0), 0.04, 0.012, ROD_LEN - 0.45, 6, rod.color, Color(0, 0, 0, 0), flip)
-	b.sphere(Vector3(0.09, -0.3, 0), 0.08, Color("9aa0a8"), 6, 4)
-	_rod_mesh.mesh = b.build()
+	var built := RodModel.build(Game.rod_data(), ROD_LEN)
+	_rod_mesh.mesh = built["mesh"]
+	_rod_tip_local = built["tip"]
 
 
 func rod_tip() -> Vector3:
-	return _rod_holder.global_transform * Vector3(0, -ROD_LEN, 0)
+	return _rod_holder.global_transform * _rod_tip_local
 
 
 func state_name() -> String:
@@ -339,6 +350,7 @@ func _process(delta: float) -> void:
 				_held_fish.visible = false
 				_player.model.pose = "idle"
 				_set_state(State.IDLE)
+	_update_ripple()
 	_update_line()
 
 
@@ -442,6 +454,15 @@ func _update_rod_pose(delta: float) -> void:
 	_rod_angle = lerpf(_rod_angle, want, minf(1.0, delta * 12.0))
 	# rod direction is local -Y rotated about X; counter the arm so the pole angle is absolute
 	_rod_holder.rotation.x = _rod_angle - _player.model.arm_r.rotation.x
+
+
+func _update_ripple() -> void:
+	var on_water := _bobber.visible and state in [State.WAITING, State.BITE, State.REELING]
+	_ripple.visible = on_water
+	if on_water:
+		_ripple.global_position = Vector3(_bobber.global_position.x, target.y + 0.04, _bobber.global_position.z)
+		_ripple_mat.set_shader_parameter("speed", 2.2 if state == State.BITE else 0.7)
+		_ripple_mat.set_shader_parameter("strength", 1.0 if state != State.REELING else 0.7)
 
 
 func _update_line() -> void:

@@ -8,17 +8,14 @@ const STAR_SHADER := preload("res://shaders/stars.gdshader")
 
 var env: Environment
 var sun: DirectionalLight3D
-var sky_mat: ProceduralSkyMaterial
+var sky_mat: ShaderMaterial
 var water: WaterBuilder = null
 var follow: Node3D = null            ## camera/player: sky dome and clouds track it
 var view_far := 380.0
 
 var _stars: MeshInstance3D
 var _star_mat: ShaderMaterial
-var _clouds_root: Node3D
-var _cloud_inst: MultiMeshInstance3D
-var _cloud_mat: StandardMaterial3D
-var _cloud_count := 0
+var _cloud_time := 0.0
 var _fog := 0.0006
 var _dark := 0.0
 var _wave := 0.5
@@ -28,10 +25,8 @@ var _thunder_in := -1.0
 
 
 func _ready() -> void:
-	sky_mat = ProceduralSkyMaterial.new()
-	sky_mat.sun_angle_max = 25.0
-	sky_mat.sun_curve = 0.15
-	sky_mat.sky_curve = 0.25
+	sky_mat = ShaderMaterial.new()
+	sky_mat.shader = preload("res://shaders/sky.gdshader")
 	var sky := Sky.new()
 	sky.sky_material = sky_mat
 	sky.radiance_size = Sky.RADIANCE_SIZE_32
@@ -43,6 +38,13 @@ func _ready() -> void:
 	env.fog_enabled = true
 	env.fog_sky_affect = 0.35
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	env.adjustment_enabled = true
+	env.adjustment_saturation = 1.06
+	env.adjustment_contrast = 1.04
+	env.glow_intensity = 0.7
+	env.glow_strength = 0.9
+	env.glow_bloom = 0.05
+	env.glow_hdr_threshold = 1.0
 	var we := WorldEnvironment.new()
 	we.environment = env
 	add_child(we)
@@ -54,7 +56,6 @@ func _ready() -> void:
 	sun.shadow_normal_bias = 1.2
 	add_child(sun)
 	_build_stars()
-	_build_clouds()
 	Settings.changed.connect(_apply_settings)
 	_apply_settings()
 
@@ -74,47 +75,16 @@ func _build_stars() -> void:
 	add_child(_stars)
 
 
-func _build_clouds() -> void:
-	_clouds_root = Node3D.new()
-	add_child(_clouds_root)
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 77
-	var mm := MultiMesh.new()
-	mm.transform_format = MultiMesh.TRANSFORM_3D
-	var cb := MeshBuilder.new()
-	cb.sphere(Vector3.ZERO, 1.0, Color.WHITE, 7, 4, Vector3(1.6, 0.6, 1.0))
-	cb.sphere(Vector3(1.4, -0.1, 0.3), 0.8, Color.WHITE, 7, 4, Vector3(1.5, 0.6, 1.0))
-	cb.sphere(Vector3(-1.5, -0.15, -0.2), 0.75, Color.WHITE, 7, 4, Vector3(1.4, 0.55, 1.0))
-	mm.mesh = cb.build()
-	_cloud_count = 28
-	mm.instance_count = _cloud_count
-	for i in _cloud_count:
-		var a := rng.randf() * TAU
-		var r := rng.randf_range(90.0, 300.0)
-		var s := rng.randf_range(14.0, 30.0)
-		var xf := Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(s, s * 0.8, s)),
-			Vector3(cos(a) * r, rng.randf_range(130.0, 190.0), sin(a) * r))
-		mm.set_instance_transform(i, xf)
-	_cloud_mat = StandardMaterial3D.new()
-	_cloud_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	_cloud_mat.vertex_color_use_as_albedo = true
-	_cloud_mat.albedo_color = Color(1, 1, 1, 1)
-	_cloud_mat.disable_fog = true
-	_cloud_inst = MultiMeshInstance3D.new()
-	_cloud_inst.multimesh = mm
-	_cloud_inst.material_override = _cloud_mat
-	_cloud_inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	_clouds_root.add_child(_cloud_inst)
-
-
 func _apply_settings() -> void:
 	view_far = Settings.view_distance_m()
 	var s := Settings.shadows
+	env.glow_enabled = s >= 2   # bloom on lamps/windows only on the high preset
 	sun.shadow_enabled = s > 0
 	sun.directional_shadow_max_distance = 45.0 if s == 1 else 90.0
 	var sc := view_far * 0.92
 	_stars.scale = Vector3.ONE * sc
-	_clouds_root.scale = Vector3.ONE * (view_far / 380.0)
+	sky_mat.set_shader_parameter("cloud_quality", 1.0 if Settings.water_quality > 0 else 0.0)
+	TerrainBuilder.set_quality(Settings.water_quality)
 	if water:
 		water.set_quality(Settings.water_quality)
 
@@ -123,8 +93,7 @@ func _process(delta: float) -> void:
 	if follow and is_instance_valid(follow):
 		var p := follow.global_position
 		_stars.global_position = p
-		_clouds_root.global_position = Vector3(p.x, 0.0, p.z)
-	_clouds_root.rotation.y += delta * 0.004
+	_cloud_time += delta
 	var info := Clock.info()
 	var d := Clock.daylight()
 	var warm := pow(1.0 - absf(2.0 * d - 1.0), 2.0)
@@ -142,10 +111,10 @@ func _process(delta: float) -> void:
 	var gray := Color(0.5, 0.53, 0.58) * (0.12 + 0.88 * d)
 	top = top.lerp(gray, _dark * 0.9)
 	hor = hor.lerp(gray * 1.1, _dark * 0.9)
-	sky_mat.sky_top_color = top
-	sky_mat.sky_horizon_color = hor
-	sky_mat.ground_horizon_color = hor.darkened(0.25)
-	sky_mat.ground_bottom_color = hor.darkened(0.6)
+	sky_mat.set_shader_parameter("top_color", top)
+	sky_mat.set_shader_parameter("horizon_color", hor)
+	sky_mat.set_shader_parameter("ground_color", hor.darkened(0.35))
+	sky_mat.set_shader_parameter("cloud_time", _cloud_time)
 
 	# sun / moon
 	var a := (Clock.hour - 6.0) / 12.0 * PI
@@ -171,15 +140,23 @@ func _process(delta: float) -> void:
 
 	# stars & clouds
 	_star_mat.set_shader_parameter("intensity", clampf(1.0 - d * 1.6, 0.0, 1.0) * (1.0 - _dark))
-	var cloud_vis := float(info["clouds"])
-	_cloud_inst.multimesh.visible_instance_count = int(round(_cloud_count * cloud_vis))
-	var cc := Color(1, 1, 1).lerp(Color(0.42, 0.45, 0.5), _dark * 1.1)
-	cc = cc.lerp(Color(1.0, 0.7, 0.55), warm * 0.4 * (1.0 - _dark))
-	cc = Color(cc.r * (0.1 + 0.9 * d), cc.g * (0.1 + 0.9 * d), cc.b * (0.13 + 0.87 * d)) * 0.92
-	_cloud_mat.albedo_color = cc
+	var cc := Color(1, 1, 1).lerp(Color(1.0, 0.72, 0.58), warm * 0.55 * (1.0 - _dark))
+	cc = Color(cc.r * (0.08 + 0.92 * d), cc.g * (0.08 + 0.92 * d), cc.b * (0.12 + 0.88 * d))
+	sky_mat.set_shader_parameter("cloud_cover", clampf(float(info["clouds"]) * 0.9 + _dark * 0.2, 0.0, 1.0))
+	sky_mat.set_shader_parameter("cloud_dark", _dark)
+	sky_mat.set_shader_parameter("cloud_tint", cc)
+	# sun / moon disc in the sky shader
+	var sdir := sun.global_transform.basis.z.normalized()
+	sky_mat.set_shader_parameter("sun_dir", sdir)
+	var is_day := d > 0.04
+	sky_mat.set_shader_parameter("sun_color", sun.light_color if is_day else Color(0.8, 0.88, 1.0))
+	sky_mat.set_shader_parameter("sun_energy", (1.0 - 0.85 * _dark) if is_day else 0.55)
+	sky_mat.set_shader_parameter("disc_size", 0.03 if is_day else 0.045)
 
+	MeshBuilder.set_night(clampf(1.0 - smoothstep(0.02, 0.4, d) + _dark * 0.25, 0.0, 1.0))
 	# water
 	if water:
+		water.set_sky(hor.lerp(top, 0.35))
 		water.set_waves(_wave)
 		water.set_dim(lerpf(0.32, 1.0, dd) * (1.0 - 0.25 * _dark))
 

@@ -33,6 +33,26 @@ func build(parent: Node3D) -> int:
 				buckets[key] = []
 			buckets[key].append(Transform3D(basis, Vector3(x, y - 0.05, z)))
 			total += 1
+	# ground cover: grass tufts and wild flowers on open meadow (denser grid, own RNG
+	# so the trees above keep their positions)
+	var grng := RandomNumberGenerator.new()
+	grng.seed = 4242
+	for gz in range(-330, 330, 5):
+		for gx in range(-330, 330, 5):
+			var x := gx + grng.randf_range(-2.2, 2.2)
+			var z := gz + grng.randf_range(-2.2, 2.2)
+			var h := Terrain.height_at(x, z)
+			var roll := grng.randf()
+			if h < 1.4 or h > 9.0 or roll > 0.62 or not _clear_land(x, z):
+				continue
+			var gkind := "flowers" if roll < 0.05 else "grass"
+			var gs := grng.randf_range(0.8, 1.5)
+			var gb := Basis(Vector3.UP, grng.randf() * TAU).scaled(Vector3.ONE * gs)
+			var gkey := "%s|%d|%d" % [gkind, floori(x / CELL), floori(z / CELL)]
+			if not buckets.has(gkey):
+				buckets[gkey] = []
+			buckets[gkey].append(Transform3D(gb, Vector3(x, h - 0.02, z)))
+			total += 1
 	for key in buckets:
 		var kind: String = key.split("|")[0]
 		var xforms: Array = buckets[key]
@@ -51,8 +71,12 @@ func build(parent: Node3D) -> int:
 		var node := MultiMeshInstance3D.new()
 		node.multimesh = mm
 		node.name = "Scatter_" + key.replace("|", "_")
-		if kind in ["bush", "reed", "rock"]:
+		if kind in ["bush", "reed", "rock", "grass", "flowers"]:
 			node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		if kind in ["grass", "flowers"]:
+			node.visibility_range_end = 60.0
+			node.visibility_range_end_margin = 12.0
+			node.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
 		parent.add_child(node)
 		_nodes.append(node)
 		_counts.append(xforms.size())
@@ -63,6 +87,20 @@ func apply_density(d: float) -> void:
 	for i in _nodes.size():
 		var n := maxi(1, int(round(_counts[i] * clampf(d, 0.05, 1.0))))
 		_nodes[i].multimesh.visible_instance_count = n
+
+
+## True where open ground (no plaza, water margin, bog, frost, trench, river).
+func _clear_land(x: float, z: float) -> bool:
+	var p := Vector2(x, z)
+	if p.distance_to(Terrain.VILLAGE) < Terrain.VILLAGE_R + 6.0: return false
+	if p.distance_to(Terrain.FACTORY) < Terrain.FACTORY_R + 4.0: return false
+	if p.distance_to(Terrain.HAMLET) < Terrain.HAMLET_R + 3.0: return false
+	if p.distance_to(Terrain.LAKE_C) < Terrain.LAKE_R + 6.0: return false
+	if Terrain.river_info(x, z)[0] < 7.0: return false
+	if p.distance_to(Terrain.BOG) < Terrain.BOG_R + 6.0 or p.distance_to(Terrain.FROST) < Terrain.FROST_R + 4.0 \
+			or p.distance_to(Terrain.TRENCH) < Terrain.TRENCH_R + 6.0:
+		return false
+	return true
 
 
 func _pick_kind(x: float, z: float, rng: RandomNumberGenerator) -> String:

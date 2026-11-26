@@ -11,6 +11,12 @@ var materials: Array[ShaderMaterial] = []
 func _material(shallow: Color, deep: Color, fade := false, priority := 0) -> ShaderMaterial:
 	var m := ShaderMaterial.new()
 	m.shader = SHADER
+	m.set_shader_parameter("height_tex", TerrainBuilder.height_texture())
+	m.set_shader_parameter("height_origin", Vector2(-Terrain.WORLD_HALF, -Terrain.WORLD_HALF))
+	m.set_shader_parameter("height_size", Terrain.WORLD_HALF * 2.0)
+	m.set_shader_parameter("h_min", TerrainBuilder.H_MIN)
+	m.set_shader_parameter("h_max", TerrainBuilder.H_MAX)
+	m.set_shader_parameter("depth_effects", 0.0 if fade else 1.0)
 	m.set_shader_parameter("shallow_color", shallow)
 	m.set_shader_parameter("deep_color", deep)
 	m.set_shader_parameter("edge_fade", 1.0 if fade else 0.0)
@@ -109,6 +115,11 @@ func set_quality(q: int) -> void:
 func set_waves(amp: float) -> void:
 	for m in materials:
 		m.set_shader_parameter("wave_amp", amp)
+
+
+func set_sky(c: Color) -> void:
+	for m in materials:
+		m.set_shader_parameter("sky_color", c)
 
 
 func set_dim(v: float) -> void:

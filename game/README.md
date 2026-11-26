@@ -16,6 +16,7 @@ audio assets, and no accounts or networking.
 | Cooking | Four station types, 8 recipes with ingredients bought at the General Store; dishes sell for more or give timed fishing buffs. |
 | World | Village, cannery district, lake hamlet, river, ocean, 3 islands reached by ferry, permits that unlock waters, 12-minute day, 5 weather types with rain, fog and lightning. |
 | Progression | XP and levels, 11 upgrades (backpack, tanks, kitchen, factory lines, assistants...), assistant anglers who fish for you, including while the app is closed. |
+| Visuals | All art is generated in code (no external assets): shaded terrain with grass/sand/rock detail and wet shorelines, depth-tinted animated water with foam, sun glints and sky reflection, a sky shader with sun/moon and drifting clouds, wind-swaying trees and grass, detailed houses with lit windows at night, a hull-lofted fishing boat that bobs, a smooth-shaded character with a face, 8 distinct rod models (reel, guides, glowing trims on the top rods), richly patterned fish, bobber ripples. The Low graphics preset switches to flat water, cheap ground and a plain sky. |
 | Android | Floating joystick, camera drag pad, context action button, multi-touch, left-handed layout, pause menu, auto-save (every 45 s and when the app is paused or closed), Low/Medium/High presets and individual graphics options. |
 
 ## Controls
@@ -63,6 +64,8 @@ projects. The Godot build is a separate workflow, `.github/workflows/godot-andro
 2. Runs both test suites; the build fails if any test fails.
 3. Exports a debug APK signed with the fixed debug key in `tools/ci/debug.keystore` (committed on purpose; it only signs test builds) and sets `version/code` from the run number, so each new build installs as an update over the previous one and keeps your save. (A build signed with an older, random key must be uninstalled once.) The APK is uploaded as the **`infinity-fishing-debug-apk`** artifact (Actions run page -> Artifacts).
 4. On a `v*` tag, if the existing signing secrets are present, it also builds a signed release APK (`infinity-fishing-release-apk`) and attaches it to the release.
+
+Dev screenshot tools (not part of the test suite): `tests/render_world.gd` (world views by day/night/weather) and `tests/render_gallery.gd` (close-ups of fish, rods, people, boat, houses, trees), both run with `xvfb-run godot --rendering-driver opengl3 ... -s res://tests/<tool>.gd -- <out dir>`.
 
 ## Honest status
 

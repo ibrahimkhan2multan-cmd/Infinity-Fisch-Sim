@@ -225,7 +225,9 @@ func _village() -> void:
 	var crate_label := Props.label("DOCK CRATE", 0.6, Color("ffffff"))
 	crate_label.position = Vector3(-24, _gy(-24, 106) + 2.2, 106)
 	world.add_child(crate_label)
-	_prop(Props.boat(), end + Vector3(7.0, -0.9, -3.0), deg_to_rad(80))
+	var boat := _prop(Props.boat(), end + Vector3(7.0, -0.9, -3.0), deg_to_rad(80))
+	boat.set_script(preload("res://scripts/world/bob.gd"))
+	boat.set_process(true)
 	_npc("Skipper Joe", "Ferry Captain", end + Vector3(0, 0.15, -1.0), PI, Color("2f6f8a"), Color("2f3a4a"), Color("f5f0e0"))
 	_interact_at(end + Vector3(0, 1.0, -2.0), "Ferry", "ferry", 4.0)
 	destinations["home"] = {"name": "Driftwood Village", "pos": Vector3(-20, _gy(-20, 108) + 1.2, 108), "yaw": 0.0,

@@ -12,6 +12,10 @@ const SHOTS := [
 	["village_night", 23.0, "clear", Vector3(-20, 11, 92), Vector3(-22, 3, 52)],
 	["storm", 15.0, "storm", Vector3(-20, 6, 112), Vector3(-20, 1, 175)],
 	["sunset", 17.4, "clear", Vector3(-20, 8, 118), Vector3(-60, 6, 160)],
+	["sky_sun", 16.6, "clear", Vector3(-20, 5, 125), "sun"],
+	["sky_clouds", 12.0, "cloudy", Vector3(-20, 5, 125), Vector3(-20, 90, 60)],
+	["sky_moon", 23.0, "clear", Vector3(-20, 5, 125), "sun"],
+	["player_pier", 11.0, "clear", Vector3(-18.2, 4.4, 150.8), Vector3(-20, 3.7, 146)],
 ]
 
 
@@ -45,8 +49,20 @@ func _initialize() -> void:
 	for s in SHOTS:
 		clock.hour = s[1]
 		clock.set_weather(s[2])
+		world.player.visible = (s[0] == "player_pier")
+		if world.player.visible:
+			world.player.global_position = Vector3(-20, 3.2, 146)
+			world.player._facing_yaw = PI
+			world.player.model.pose = "fish"
+			for k in 20:
+				await process_frame
 		cam.global_position = s[3]
-		cam.look_at(s[4])
+		for i in 2:
+			world.sky._process(5.0)
+		if s[4] is String:
+			cam.look_at(s[3] + world.sky.sun.global_transform.basis.z * 100.0)
+		else:
+			cam.look_at(s[4])
 		world.sky.follow = cam
 		for i in 4:
 			world.sky._process(5.0)

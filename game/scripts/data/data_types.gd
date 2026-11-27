@@ -47,6 +47,18 @@ class Rod extends RefCounted:
 	var desc: String = ""
 
 
+class Charm extends RefCounted:
+	var id: String
+	var name: String
+	var price: int
+	var level_req: int = 1
+	var luck: float = 0.0        ## adds to rarity bias (like rod/bait luck)
+	var calm: float = 0.0        ## fraction by which the fish moves slower in the reel bar
+	var rarity: int = 0          ## 0..5, colours the name
+	var color: Color = Color("ffd23f")
+	var desc: String = ""
+
+
 class Bait extends RefCounted:
 	var id: String
 	var name: String

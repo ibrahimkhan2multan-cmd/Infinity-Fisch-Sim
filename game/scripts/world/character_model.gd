@@ -14,6 +14,8 @@ var _phase := 0.0
 var _arm_r_target := 0.0
 var _arm_l_target := 0.0
 var _shake := 0.0
+var swimming := false  ## set by Player: front-crawl arms, leaning body
+var _swim_phase := 0.0
 
 
 static var _cache: Dictionary = {}
@@ -179,6 +181,13 @@ func animate(delta: float, speed: float, grounded := true) -> void:
 	leg_l.rotation.x = lerpf(leg_l.rotation.x, swing, minf(1.0, delta * 18.0))
 	leg_r.rotation.x = lerpf(leg_r.rotation.x, -swing, minf(1.0, delta * 18.0))
 	body_root.position.y = absf(sin(_phase)) * 0.05 * speed
+	var lean := -0.5 if swimming else 0.0
+	body_root.rotation.x = lerpf(body_root.rotation.x, lean, minf(1.0, delta * 8.0))
+	if swimming:
+		_swim_phase += delta * (3.0 + speed * 5.0)
+		body_root.position.y = sin(_swim_phase * 0.5) * 0.04
+		leg_l.rotation.x = sin(_swim_phase * 2.0) * 0.5
+		leg_r.rotation.x = -sin(_swim_phase * 2.0) * 0.5
 	match pose:
 		"fish":
 			_arm_r_target = 1.15
@@ -197,8 +206,12 @@ func animate(delta: float, speed: float, grounded := true) -> void:
 			_arm_r_target = 2.7
 			_arm_l_target = 2.7
 		_:
-			_arm_r_target = -swing * 0.7
-			_arm_l_target = swing * 0.7
+			if swimming:
+				_arm_r_target = 2.4 * sin(_swim_phase) - 0.3
+				_arm_l_target = -2.4 * sin(_swim_phase) - 0.3
+			else:
+				_arm_r_target = -swing * 0.7
+				_arm_l_target = swing * 0.7
 	var k := minf(1.0, delta * (28.0 if pose == "cast" else 12.0))
 	arm_r.rotation.x = lerpf(arm_r.rotation.x, _arm_r_target, k)
 	arm_l.rotation.x = lerpf(arm_l.rotation.x, _arm_l_target, k)

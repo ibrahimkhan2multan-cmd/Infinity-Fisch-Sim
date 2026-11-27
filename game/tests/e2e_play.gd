@@ -110,6 +110,39 @@ func _run() -> void:
 	await frames(2)
 	check(absf(player.cam_yaw - yaw0) > 0.01, "dragging the right side turns the camera")
 
+	print("== swimming: walk from the bank into the lake")
+	var bank := Vector3(30, 6.2, -26)
+	player.teleport(bank, 0.0)    # facing -Z, towards the lake centre
+	player.cam_yaw = 0.0
+	await frames(20)
+	check(not player.swimming, "standing on the bank is not swimming")
+	var stick := Vector2(200, 560)
+	touch(stick, true, 1)
+	await frames(2)
+	drag(stick + Vector2(0, -80), Vector2(0, -80), 1)
+	var w := 0
+	while not player.swimming and w < 900:
+		await get_tree().process_frame
+		w += 1
+	check(player.swimming, "walking into deep water starts swimming (%d frames)" % w)
+	await frames(30)
+	await shot("03b_swimming")
+	var lvl := Terrain.water_level_at(player.global_position.x, player.global_position.z)
+	check(lvl != -INF and absf(player.global_position.y - (lvl - 1.0)) < 0.8,
+		"swimmer floats at the surface (y %.2f, water %.2f)" % [player.global_position.y, lvl])
+	var z0 := player.global_position.z
+	w = 0
+	while player.global_position.z > Terrain.LAKE_C.y + 4.0 and w < 1500:
+		await get_tree().process_frame
+		w += 1
+	check(player.global_position.z < z0 - 5.0 and Terrain.passable(player.global_position.x, player.global_position.z),
+		"keeps swimming across the lake (z %.1f -> %.1f)" % [z0, player.global_position.z])
+	touch(stick + Vector2(0, -80), false, 1)
+	await frames(5)
+	player.teleport(Vector3(30, 6.2, -26), 0.0)
+	await frames(10)
+	check(not player.swimming, "back on the bank the swim state ends")
+
 	print("== fishing from the pier with touch buttons")
 	player.teleport(Vector3(-20, 3.2, 142), PI)
 	await frames(10)
@@ -201,6 +234,34 @@ func _run() -> void:
 		ing_after += int(Game.ingredients[k])
 	check(ing_after > ing_before and Game.money < 5000, "pressing a shop button really buys and charges money")
 	general.close_panel()
+	await frames(2)
+
+	print("== charms through the UI")
+	Game.money = 5000
+	var tackle: PanelShop = session.panels["tackle"]
+	session.open_panel("tackle")
+	await frames(2)
+	tackle.tab = 2
+	tackle.refresh()
+	await frames(3)
+	var charms_before: int = Game.charms_owned.size()
+	var luck_before: float = Game.fishing_stat("luck")
+	check(_press_first(tackle.content, "$"), "found a buy button on the Charms tab")
+	await frames(3)
+	check(Game.charms_owned.size() == charms_before + 1, "pressing Buy on a charm really buys it")
+	check(Game.fishing_stat("luck") > luck_before or Game.fishing_stat("calm") > 0.0, "the bought charm is active")
+	await shot("panel_charms")
+	tackle.close_panel()
+	await frames(2)
+	session.open_panel("inventory")
+	await frames(3)
+	var inv: PanelBase = session.panels["inventory"]
+	inv.tab = 1   # Gear
+	inv.refresh()
+	await frames(3)
+	check(inv.content.get_child_count() > 3, "Gear tab lists rods, bait and charms")
+	await shot("panel_inventory_charms")
+	inv.close_panel()
 	await frames(2)
 
 	print("== rest, save and reload")

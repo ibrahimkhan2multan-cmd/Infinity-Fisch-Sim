@@ -10,6 +10,7 @@ var recipes: Dictionary = {}      # id -> DataTypes.Recipe
 var products: Dictionary = {}     # id -> DataTypes.Product
 var locations: Dictionary = {}    # id -> DataTypes.Location
 var upgrades: Dictionary = {}     # id -> DataTypes.Upgrade
+var charms: Dictionary = {}       # id -> DataTypes.Charm
 
 var _by_water: Dictionary = {}
 
@@ -23,6 +24,7 @@ func _init() -> void:
 	products = FoodDB.build_products()
 	locations = WorldDB.build_locations()
 	upgrades = WorldDB.build_upgrades()
+	charms = CharmDB.build()
 	for sp in fish.values():
 		for w in sp.waters:
 			if not _by_water.has(w):

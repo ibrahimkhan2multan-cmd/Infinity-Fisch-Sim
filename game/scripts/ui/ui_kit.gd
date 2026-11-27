@@ -125,12 +125,14 @@ static func header(text: String) -> Label:
 ## A list entry: a title + sub line on the left, any number of buttons on the right.
 ## actions: Array of [text, Callable, enabled(bool), color(optional)]
 static func row(title: String, sub := "", actions: Array = [], title_color := C_TEXT,
-		bg := C_ROW) -> PanelContainer:
+		bg := C_ROW, icon: Control = null) -> PanelContainer:
 	var pc := PanelContainer.new()
 	pc.add_theme_stylebox_override("panel", style(bg, 12, 0, Color.TRANSPARENT, 14))
 	pc.custom_minimum_size = Vector2(0, ROW_H)
 	var h := HBoxContainer.new()
 	pc.add_child(h)
+	if icon != null:
+		h.add_child(icon)
 	var v := VBoxContainer.new()
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	v.add_theme_constant_override("separation", 2)

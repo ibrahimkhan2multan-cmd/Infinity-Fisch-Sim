@@ -48,6 +48,21 @@ func _gear() -> void:
 		add_row(r.name + ("  (equipped)" if equipped else ""),
 			"Luck %+d%% · Lure x%.2f · Control %d%% · Range %dm" % [int(r.luck * 100.0), r.lure, int(r.control * 100.0), int(r.cast_range)],
 			[["Equip", func(): Game.equip_rod(id), not equipped]])
+	add_header("Charms  %d / %d equipped" % [Game.charms_equipped.size(), CharmDB.SLOTS])
+	if Game.charms_owned.is_empty():
+		add_note("No charms yet. The Tackle Shop sells luck and calm charms.")
+	else:
+		add_note("Total from charms: Luck %+d%% · Fish %d%% slower in the reel bar." % [
+			int(round(Game.charm_total("luck") * 100.0)), int(round(Game.fishing_stat("calm") * 100.0))])
+	for id in Game.charms_owned:
+		var c: DataTypes.Charm = Data.charms[id]
+		var on: bool = Game.charms_equipped.has(id)
+		add_row(c.name + ("  (equipped)" if on else ""), PanelShop.charm_stats(c),
+			[["Take off" if on else "Equip", func():
+				if on:
+					Game.unequip_charm(id)
+				else:
+					report(Game.equip_charm(id)), true]], Util.rarity_color(c.rarity), CharmIcon.make(c, 48.0))
 	add_header("Bait")
 	var any_bait := false
 	for id in Game.baits:

@@ -9,7 +9,7 @@ func setup(p_mode: String) -> PanelShop:
 	mode = p_mode
 	if mode == "tackle":
 		title = "Tackle Shop"
-		tab_names = ["Rods", "Bait"]
+		tab_names = ["Rods", "Bait", "Charms"]
 	else:
 		title = "General Store"
 		tab_names = ["Ingredients", "Tank feed"]
@@ -19,10 +19,10 @@ func setup(p_mode: String) -> PanelShop:
 func _populate(t: int) -> void:
 	content.add_child(UI.label("Money: " + Util.money(Game.money), UI.FONT, UI.C_GOLD))
 	if mode == "tackle":
-		if t == 0:
-			_rods()
-		else:
-			_baits()
+		match t:
+			0: _rods()
+			1: _baits()
+			_: _charms()
 	else:
 		if t == 0:
 			_ingredients()
@@ -45,6 +45,37 @@ func _rods() -> void:
 			var label := "Lv %d" % r.level_req if locked else Util.money(r.price)
 			add_row(r.name, "%s\n%s" % [r.desc, stats],
 				[[label, func(): Game.buy_rod(id), not locked and Game.money >= r.price, UI.C_GOOD]])
+
+
+static func charm_stats(c: DataTypes.Charm) -> String:
+	var parts: PackedStringArray = []
+	if c.luck > 0.0:
+		parts.append("Luck %+d%%" % int(round(c.luck * 100.0)))
+	if c.calm > 0.0:
+		parts.append("Fish %d%% slower" % int(round(c.calm * 100.0)))
+	return " · ".join(parts)
+
+
+func _charms() -> void:
+	add_note("Equip up to %d charms (%d on now). Luck finds rarer fish; Calm slows the fish in the reel bar (max %d%% total)." % [
+		CharmDB.SLOTS, Game.charms_equipped.size(), int(CharmDB.MAX_CALM * 100.0)])
+	for id in Data.charms:
+		var c: DataTypes.Charm = Data.charms[id]
+		var stats := charm_stats(c)
+		var icon := CharmIcon.make(c)
+		if Game.charms_owned.has(id):
+			var on: bool = Game.charms_equipped.has(id)
+			add_row(c.name + ("  (equipped)" if on else "  (owned)"), "%s\n%s" % [c.desc, stats],
+				[["Take off" if on else "Equip", func():
+					if on:
+						Game.unequip_charm(id)
+					else:
+						report(Game.equip_charm(id)), true]], UI.C_GOOD, icon)
+		else:
+			var locked := Game.level < c.level_req
+			var label := "Lv %d" % c.level_req if locked else Util.money(c.price)
+			add_row(c.name, "%s\n%s" % [c.desc, stats],
+				[[label, func(): Game.buy_charm(id), not locked and Game.money >= c.price, UI.C_GOOD]], Util.rarity_color(c.rarity), icon)
 
 
 func _baits() -> void:

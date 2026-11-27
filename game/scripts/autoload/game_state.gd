@@ -32,6 +32,8 @@ var dishes: Dictionary = {}          # recipe id -> Array[int] values
 var products: Dictionary = {}        # product id -> {"n": int, "v": int}
 var crate: Array = []                # fish caught by assistants
 
+var charms_owned: Array = []
+var charms_equipped: Array = []
 var owned_rods: Array = ["twig_rod"]
 var rod: String = "twig_rod"
 var bait: String = ""
@@ -94,6 +96,8 @@ func reset_new_game() -> void:
 	products = {}
 	crate = []
 	owned_rods = ["twig_rod"]
+	charms_owned = []
+	charms_equipped = []
 	rod = "twig_rod"
 	bait = "worm"
 	upgrades = {}
@@ -123,6 +127,7 @@ func to_dict() -> Dictionary:
 		"fish": fish, "ingredients": ingredients, "baits": baits, "feed": feed_pellets,
 		"dishes": dishes, "products": products, "crate": crate,
 		"owned_rods": owned_rods, "rod": rod, "bait": bait,
+		"charms_owned": charms_owned, "charms_equipped": charms_equipped,
 		"upgrades": upgrades, "permits": permits,
 		"unlocked_products": unlocked_products, "unlocked_stations": unlocked_stations,
 		"collection": collection, "buffs": buffs, "flags": flags, "stats": stats,
@@ -148,6 +153,10 @@ func from_dict(d: Dictionary) -> void:
 	owned_rods = _arr(d.get("owned_rods", ["twig_rod"]))
 	if owned_rods.is_empty():
 		owned_rods = ["twig_rod"]
+	charms_owned = _arr(d.get("charms_owned", [])).filter(func(c): return Data.charms.has(c))
+	charms_equipped = _arr(d.get("charms_equipped", [])).filter(func(c): return charms_owned.has(c))
+	if charms_equipped.size() > CharmDB.SLOTS:
+		charms_equipped = charms_equipped.slice(0, CharmDB.SLOTS)
 	rod = str(d.get("rod", "twig_rod"))
 	bait = str(d.get("bait", ""))
 	upgrades = _count_dict(d.get("upgrades"))
@@ -359,7 +368,7 @@ func fishing_stat(stat: String, include_bait := true) -> float:
 			v = r.luck + (b.luck if b else 0.0)
 			if b and FishLogic.is_night(Clock.hour):
 				v += b.night_bonus
-			v += buff_amount("luck")
+			v += buff_amount("luck") + charm_total("luck")
 		"lure":
 			v = r.lure * (b.lure if b else 1.0) + buff_amount("lure")
 		"control":
@@ -370,6 +379,8 @@ func fishing_stat(stat: String, include_bait := true) -> float:
 			v = r.cast_range
 		"size":
 			v = r.size_bonus
+		"calm":
+			v = minf(CharmDB.MAX_CALM, charm_total("calm"))
 	return v
 
 
@@ -404,6 +415,56 @@ func buy_rod(id: String) -> bool:
 	notify.emit("Bought %s!" % r.name, "good")
 	Sfx.play("coin")
 	return true
+
+
+## Sum of one stat ("luck" | "calm") over the equipped charms.
+func charm_total(stat: String) -> float:
+	var v := 0.0
+	for id in charms_equipped:
+		var c: DataTypes.Charm = Data.charms.get(id)
+		if c != null:
+			v += c.luck if stat == "luck" else c.calm
+	return v
+
+
+func buy_charm(id: String) -> bool:
+	var c: DataTypes.Charm = Data.charms.get(id)
+	if c == null or charms_owned.has(id):
+		return false
+	if level < c.level_req:
+		notify.emit("Requires level %d." % c.level_req, "bad")
+		Sfx.play("error")
+		return false
+	if not spend(c.price):
+		return false
+	charms_owned.append(id)
+	# put it straight on if a slot is free
+	if charms_equipped.size() < CharmDB.SLOTS:
+		charms_equipped.append(id)
+	equipment_changed.emit()
+	inventory_changed.emit()
+	notify.emit("Bought %s!" % c.name, "good")
+	Sfx.play("coin")
+	return true
+
+
+## "" on success, otherwise why not.
+func equip_charm(id: String) -> String:
+	if not charms_owned.has(id):
+		return "You do not own that charm."
+	if charms_equipped.has(id):
+		return ""
+	if charms_equipped.size() >= CharmDB.SLOTS:
+		return "All %d charm slots are full - take one off first." % CharmDB.SLOTS
+	charms_equipped.append(id)
+	equipment_changed.emit()
+	return ""
+
+
+func unequip_charm(id: String) -> void:
+	if charms_equipped.has(id):
+		charms_equipped.erase(id)
+		equipment_changed.emit()
 
 
 func equip_rod(id: String) -> void:

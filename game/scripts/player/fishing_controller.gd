@@ -204,7 +204,7 @@ func hook() -> void:
 		return
 	current_fish = f
 	minigame = ReelMinigame.new()
-	minigame.setup(FishLogic.reel_difficulty(f), cast_stats.get("control", 0.3), cast_stats.get("resilience", 0.1))
+	minigame.setup(FishLogic.reel_difficulty(f), cast_stats.get("control", 0.3), cast_stats.get("resilience", 0.1), -1, cast_stats.get("calm", 0.0))
 	reel_holding = false
 	_set_state(State.REELING)
 	_player.model.pose = "reel"
@@ -289,7 +289,7 @@ func _launch() -> void:
 	cast_stats = {
 		"luck": Game.fishing_stat("luck"), "lure": Game.fishing_stat("lure"),
 		"control": Game.fishing_stat("control"), "resilience": Game.fishing_stat("resilience"),
-		"size": Game.fishing_stat("size"),
+		"size": Game.fishing_stat("size"), "calm": Game.fishing_stat("calm"),
 	}
 	Game.consume_bait()
 	_cast_from = rod_tip()

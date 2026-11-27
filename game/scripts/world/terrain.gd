@@ -197,6 +197,27 @@ static func walkable(x: float, z: float) -> bool:
 	return height_at(x, z) > wl - 0.9
 
 
+## Deep enough to swim, but only in the lake, the river and the shallow sea around the
+## main island - never the open ocean between islands (those need the ferry).
+const SWIM_MAX_DEPTH := 7.0
+
+static func swimmable(x: float, z: float) -> bool:
+	if absf(x) > WORLD_HALF - 6.0 or absf(z) > WORLD_HALF - 6.0:
+		return false
+	var wl := water_level_at(x, z)
+	if wl == -INF:
+		return false
+	if wl - height_at(x, z) > SWIM_MAX_DEPTH:
+		return false
+	var wt := water_type_at(x, z)
+	return wt == "lake" or wt == "river" or wt == "shore"
+
+
+## Can the player be at (x, z) on foot or swimming?
+static func passable(x: float, z: float) -> bool:
+	return walkable(x, z) or swimmable(x, z)
+
+
 static func add_walk_zone(start: Vector2, yaw: float, length: float, width: float) -> void:
 	# pier runs from `start` along local +Z rotated by yaw
 	var dir := Vector2(sin(yaw), cos(yaw))

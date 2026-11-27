@@ -20,6 +20,7 @@ var _loss := 0.15
 var _fish_target := 0.5
 var _retarget_in := 1.0
 var _dash_left := 0.0
+var _calm := 0.0   ## charms: fraction the fish is slowed by
 var _rng := RandomNumberGenerator.new()
 
 const MAX_SPEED := 0.95
@@ -28,12 +29,13 @@ const GRACE := 1.2
 const TIME_LIMIT := 50.0
 
 
-func setup(fish_difficulty: float, control: float, resilience: float, seed_value: int = -1) -> void:
+func setup(fish_difficulty: float, control: float, resilience: float, seed_value: int = -1, calm: float = 0.0) -> void:
 	if seed_value >= 0:
 		_rng.seed = seed_value
 	else:
 		_rng.randomize()
 	difficulty = clampf(fish_difficulty, 0.0, 1.0)
+	_calm = clampf(calm, 0.0, CharmDB.MAX_CALM)
 	bar_size = clampf(control, 0.15, 0.9)
 	_gain = 0.19 + 0.08 * (1.0 - difficulty)
 	_loss = (0.10 + 0.20 * difficulty) * (1.0 - 0.6 * clampf(resilience, 0.0, 1.0))
@@ -73,8 +75,8 @@ func update(dt: float, holding: bool) -> void:
 		_retarget_in = lerpf(1.5, 0.45, difficulty) * _rng.randf_range(0.7, 1.3)
 		_fish_target = _rng.randf_range(0.06, 0.94)
 		if difficulty > 0.5 and _rng.randf() < difficulty * 0.35:
-			_dash_left = 0.35
-	var speed := lerpf(0.28, 0.85, difficulty)
+			_dash_left = 0.35 * (1.0 - _calm)
+	var speed := lerpf(0.28, 0.85, difficulty) * (1.0 - _calm)
 	if _dash_left > 0.0:
 		_dash_left -= dt
 		speed *= 2.2

@@ -157,8 +157,8 @@ func add_note(text: String, color := UI.C_DIM) -> void:
 	content.add_child(l)
 
 
-func add_row(title_text: String, sub := "", actions: Array = [], title_color := UI.C_TEXT) -> void:
-	content.add_child(UI.row(title_text, sub, actions, title_color))
+func add_row(title_text: String, sub := "", actions: Array = [], title_color := UI.C_TEXT, icon: Control = null) -> void:
+	content.add_child(UI.row(title_text, sub, actions, title_color, UI.C_ROW, icon))
 
 
 ## Shows the result message of a system call ("" = success) as a toast.

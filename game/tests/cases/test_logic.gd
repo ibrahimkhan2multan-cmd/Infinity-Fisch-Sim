@@ -129,3 +129,19 @@ func _economy_basics(t) -> void:
 	t.check(Util.duration(125) == "2m 05s", "duration formatting: %s" % Util.duration(125))
 	t.check(Util.weight_text(0.25) == "250 g" and Util.weight_text(2.0) == "2.0 kg", "weight text")
 	t.check(Game.xp_needed(1) < Game.xp_needed(10), "xp curve increases")
+	# levelling must feel quick: a handful of common catches gives the first level-up,
+	# and the whole 1 -> 40 climb stays within a sane total
+	t.check(Game.xp_needed(1) <= 30, "first level-up needs little xp (%d)" % Game.xp_needed(1))
+	var total := 0
+	for lv in range(1, Game.MAX_LEVEL):
+		total += Game.xp_needed(lv)
+	t.check(total < 80000, "total xp to max level is moderate (%d)" % total)
+	Game.reset_new_game()
+	var common_xp: int = Util.RARITY_XP[0]
+	Game.add_xp(common_xp)
+	t.check(Game.xp == common_xp * 2 or Game.level > 1, "xp gains are doubled (%d)" % Game.xp)
+	var guard := 0
+	while Game.level < 2 and guard < 20:
+		Game.add_xp(common_xp)
+		guard += 1
+	t.check(Game.level == 2 and guard <= 3, "level 2 after %d common catches" % (guard + 1))

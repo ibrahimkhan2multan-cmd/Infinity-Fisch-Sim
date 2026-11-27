@@ -242,14 +242,17 @@ func spend(amount: int) -> bool:
 	return true
 
 
+## Levelling is deliberately quick: gentle curve and every XP source counts double.
+const XP_GAIN := 2.0
+
 static func xp_needed(lv: int) -> int:
-	return int(round(60.0 * pow(float(lv), 1.5)))
+	return int(round(25.0 * pow(float(lv), 1.35)))
 
 
 func add_xp(amount: int) -> void:
 	if level >= MAX_LEVEL:
 		return
-	xp += amount
+	xp += maxi(1, int(round(float(amount) * XP_GAIN)))
 	while level < MAX_LEVEL and xp >= xp_needed(level):
 		xp -= xp_needed(level)
 		level += 1

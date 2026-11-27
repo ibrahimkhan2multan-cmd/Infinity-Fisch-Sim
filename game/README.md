@@ -15,7 +15,7 @@ audio assets, and no accounts or networking.
 | Business | Fish market with customers' orders and demand-based prices, stalls, a cannery with production lines, products (fillets, fishmeal, oil, smoked, canned), wholesale price drift, contracts, warehouse. |
 | Cooking | Four station types, 8 recipes with ingredients bought at the General Store; dishes sell for more or give timed fishing buffs. |
 | World | Village, cannery district, lake hamlet, river, ocean, 3 islands reached by ferry, permits that unlock waters, 12-minute day, 5 weather types with rain, fog and lightning. |
-| Progression | XP and levels, 11 upgrades (backpack, tanks, kitchen, factory lines, assistants...), assistant anglers who fish for you, including while the app is closed. |
+| Progression | XP and levels (quick levelling: gentle XP curve, all XP doubled), 11 upgrades (backpack, tanks, kitchen, factory lines, assistants...), assistant anglers who fish for you, including while the app is closed. |
 | Charms | 10 charms sold in the Tackle Shop (Charms tab): **Luck** charms make rarer fish bite, **Calm** charms slow the fish in the reel bar (and shorten its dashes). Wear up to 3 at once (shop or Backpack > Gear); luck adds to rod/bait/food luck, total calm is capped at 50 % so the fight never becomes trivial. Owned and worn charms are saved. |
 | Movement | Faster walk/run (7 / 12 m/s) and higher jump, snappier acceleration, steeper banks can be climbed, and short jump forgiveness (coyote time + input buffer). You can **swim** in the lake, the river and the shallow sea around the main island, so nothing on the main island is blocked; swimming has its own animation, splash sounds and ripple. The open ocean and the other islands are still reachable only by ferry. |
 | Visuals | All art is generated in code (no external assets): shaded terrain with grass/sand/rock detail and wet shorelines, depth-tinted animated water with foam, sun glints and sky reflection, a sky shader with sun/moon and drifting clouds, wind-swaying trees and grass, detailed houses with lit windows at night, a hull-lofted fishing boat that bobs, a smooth-shaded character with a face, 8 distinct rod models (reel, guides, glowing trims on the top rods), richly patterned fish, bobber ripples. The Low graphics preset switches to flat water, cheap ground and a plain sky. |
@@ -48,7 +48,7 @@ Game rules live in `scripts/systems/` and operate on `Game` state, so they are t
 
 ```bash
 godot --headless --path game --import                        # once, builds the class cache
-godot --headless --path game -s res://tests/run_tests.gd      # unit/system tests (~555 checks)
+godot --headless --path game -s res://tests/run_tests.gd      # unit/system tests (~560 checks)
 godot --headless --path game res://tests/e2e_play.tscn        # scripted play-through (~68 checks)
 ```
 
